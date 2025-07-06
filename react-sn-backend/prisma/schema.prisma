@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ChatMemberRole {
+  MEMBER
+  ADMIN
+  FOUNDER
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  username  String   @unique
+  createdAt DateTime @default(now())
+
+  initiatedFriendships Friendship[] @relation("FriendshipInitiator")
+  receivedFriendships  Friendship[] @relation("FriendshipReceiver")
+  posts                Post[]
+  sentMessages         Message[]    @relation("MessageSender")
+  receivedMessages     MessageRecipient[]
+  chatMemberships      ChatMember[]
+  chatMessages         ChatMessage[]
+
+  @@map("users")
+  Chat Chat[]
+}
+
+model Friendship {
+  id          Int              @id @default(autoincrement())
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  initiator   User @relation("FriendshipInitiator", fields: [initiatorId], references: [id])
+  initiatorId Int
+  receiver    User @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+  receiverId  Int
+
+  @@unique([initiatorId, receiverId])
+  @@map("friendships")
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  author    User?   @relation(fields: [authorId], references: [id])
+  authorId  Int?
+  images    Image[]
+
+  @@map("posts")
+}
+
+model Image {
+  id       String   @id @default(uuid())
+  url      String   @map("img_url")
+  createdAt DateTime @default(now())
+
+  post        Post?         @relation(fields: [postId], references: [id])
+  postId      Int?
+  message     Message?      @relation(fields: [messageId], references: [id])
+  messageId   Int?
+  chatMessage ChatMessage?  @relation(fields: [chatMessageId], references: [id])
+  chatMessageId Int?
+
+  @@map("images")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  text      String?
+  createdAt DateTime @default(now())
+
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  senderId   Int
+  recipients MessageRecipient[]
+  images     Image[]
+
+  @@map("messages")
+}
+
+model MessageRecipient {
+  message    Message @relation(fields: [messageId], references: [id])
+  messageId  Int
+  recipient  User    @relation(fields: [recipientId], references: [id])
+  recipientId Int
+  isRead     Boolean @default(false)
+  readAt     DateTime?
+
+  @@id([messageId, recipientId])
+  @@map("message_recipients")
+}
+
+model Chat {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+
+  founder   User      @relation(fields: [founderId], references: [id])
+  founderId Int
+  members   ChatMember[]
+  messages  ChatMessage[]
+
+  @@map("chats")
+}
+
+model ChatMember {
+  user      User          @relation(fields: [userId], references: [id])
+  userId    Int
+  chat      Chat          @relation(fields: [chatId], references: [id])
+  chatId    Int
+  role      ChatMemberRole @default(MEMBER)
+  joinedAt  DateTime      @default(now())
+
+  @@id([userId, chatId])
+  @@map("chat_members")
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  text      String?
+  createdAt DateTime @default(now())
+
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  chatId    Int
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  Int
+  images    Image[]
+
+  @@map("chat_messages")
+}
